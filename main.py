@@ -6,7 +6,7 @@ from win32com.client import Dispatch
 capture = cv2.VideoCapture(0)
 
 
-lower_skin = np.array([0,0.28 * 255,0])
+lower_skin = np.array([10,0.28 * 255,0])
 upper_skin = np.array([25,0.68 * 255,255])
 
 curr_progression = 0
@@ -24,29 +24,32 @@ while capture.isOpened():
     ret, frame = capture.read()
     frame = cv2.flip(frame, 1)
 
-    # Apply Gaussian blur
-    blur = cv2.GaussianBlur(frame, (3, 3), 0)
-
     # Change color-space from BGR -> HSV
-    hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     mask1 = cv2.inRange(hsv, np.array([2, 0, 0]), np.array([20, 255, 255]))
     mask2 = cv2.inRange(hsv, lower_skin, upper_skin)
-    mask = cv2.bitwise_and(mask1, mask2)
-    # Kernel for morphological transformation
-    kernel = np.ones((10, 10))
+    mask = cv2.bitwise_or(mask1, mask2)
 
-    # Apply morphological transformations to filter out the background noise
-    dilation = cv2.dilate(mask, kernel, iterations=1)
-    erosion = cv2.erode(dilation, kernel, iterations=1)
+    # Kernel for morphological transformation
+    kernel = np.ones((3, 3))
 
     # Apply Gaussian Blur and Threshold
-    filtered = cv2.GaussianBlur(erosion, (21, 21), 0)
-    ret, thresh = cv2.threshold(filtered, 150, 255, 0)
+    first_filter = cv2.medianBlur(mask, 5)
+    filtered = cv2.GaussianBlur(first_filter, (7,7), 0)
+
+    # Apply morphological transformations to filter out the background noise
+    dilation = cv2.dilate(filtered, kernel, iterations=2)
+    erosion = cv2.erode(dilation, kernel, iterations=2)
+    cv2.imshow('erosion', erosion)
+    extracted = cv2.bitwise_and(frame, frame, mask=erosion)
+    cv2.imshow('extracted', extracted)
+    bw = cv2.cvtColor(extracted, cv2.COLOR_BGR2GRAY)
 
 
-    # Show threshold image
-    cv2.imshow("Thresholded", thresh)
+    new_filt = cv2.dilate(bw, np.ones((2,1)), iterations=21)
+
+    ret, thresh = cv2.threshold(new_filt, 30, 255, 0)
 
     # Find contours
     image, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -82,9 +85,11 @@ while capture.isOpened():
 
             angle = math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c)) * 57
 
-            if angle <= 90:
+            if angle <= 60:
                 num_defect += 1
                 cv2.circle(frame, far, 3, (0, 0, 255), -1)
+                if num_defect > 4:
+                    break
 
             cv2.line(frame, start, end, (0, 255, 0), 1)
         if curr_gesture != num_defect and accuracy < needed_accuracy:
@@ -98,7 +103,6 @@ while capture.isOpened():
                 if curr_progression >= len(gesture_progression):
                     curr_progression = 0
                     speak.Speak("Ok Google")
-                    speak.Speak("Sing me a song.")
                 accuracy = 0
                 curr_gesture = None
                 print(curr_progression)
@@ -111,7 +115,6 @@ while capture.isOpened():
                 accuracy = 0
                 curr_gesture = None
     except Exception as e:
-        print(e)
         pass
 
 
