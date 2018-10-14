@@ -3,27 +3,26 @@ import cv2
 import math
 from win32com.client import Dispatch
 
-
 capture = cv2.VideoCapture(0)
+
 
 lower_skin = np.array([0,0.28 * 255,0])
 upper_skin = np.array([25,0.68 * 255,255])
 
 curr_progression = 0
 curr_gesture = None
-gesture_progression = [0, 1, 0]
+gesture_progression = [2, 1, 0]
 accuracy = 0
-needed_accuracy = 5
+needed_accuracy = 8
 speak = Dispatch('SAPI.SpVoice')
+
+
 
 while capture.isOpened():
 
     # Capture frames from the camera
     ret, frame = capture.read()
     frame = cv2.flip(frame, 1)
-
-    # Get hand data from the rectangle sub window
-    #cv2.rectangle(frame, (100, 100), (400, 400), (0, 255, 0), 0)
 
     # Apply Gaussian blur
     blur = cv2.GaussianBlur(frame, (3, 3), 0)
@@ -59,7 +58,7 @@ while capture.isOpened():
         cv2.drawContours(frame, [hull], -1, (255, 0, 255), 3)
 
         # print(hull)
-        # for h in hull:S
+        # for h in hull:
         #     try:
         #         x = h[0][0]
         #         y = h[0][1]
@@ -99,7 +98,7 @@ while capture.isOpened():
                 if curr_progression >= len(gesture_progression):
                     curr_progression = 0
                     speak.Speak("Ok Google")
-                    speak.Speak("Turn off the lights.")
+                    speak.Speak("Sing me a song.")
                 accuracy = 0
                 curr_gesture = None
                 print(curr_progression)
@@ -107,7 +106,7 @@ while capture.isOpened():
                 if curr_progression > 0 and gesture_progression[curr_progression - 1] == curr_gesture:
                     print('Redundant gesture detected, ignoring because Connor hates racing the AI')
                 else:
-                    print('Too slow, restarting sequence...')
+                    print('Not a valid sequence, resetting...')
                     curr_progression = 0
                 accuracy = 0
                 curr_gesture = None
